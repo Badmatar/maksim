@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "client"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+model User {
+  id String @id @default(cuid())
+  telegramId BigInt @unique
+  name String
+  username String?
+  source String?
+  createdAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  onboarded Boolean @default(false)
+  freeReceived Boolean @default(false)
+  marketingConsent Boolean @default(false)
+  blocked Boolean @default(false)
+  activeOrderId String?
+  awaitingConsultation Boolean @default(false)
+  orders Order[]
+  entitlements Entitlement[]
+  registrations Registration[]
+  invites Invite[]
+  events UserEvent[]
+  consultations Consultation[]
+}
+model Admin {
+  id String @id @default(cuid())
+  telegramId BigInt @unique
+  role String @default("ADMIN")
+  enabled Boolean @default(true)
+}
+model Meditation {
+  id String @id @default(cuid())
+  title String
+  description String
+  category String
+  durationMinutes Int
+  coverUrl String?
+  audioFileId String
+  free Boolean @default(false)
+  published Boolean @default(false)
+  products ProductItem[]
+}
+model Product {
+  id String @id @default(cuid())
+  title String
+  description String
+  kind String
+  price Int
+  currency String @default("RUB")
+  durationDays Int?
+  published Boolean @default(false)
+  items ProductItem[]
+  orders Order[]
+  entitlements Entitlement[]
+  event Event?
+}
+model ProductItem {
+  productId String
+  meditationId String
+  product Product @relation(fields:[productId],references:[id],onDelete:Cascade)
+  meditation Meditation @relation(fields:[meditationId],references:[id],onDelete:Cascade)
+  @@id([productId,meditationId])
+}
+model Order {
+  id String @id @default(cuid())
+  userId String
+  productId String
+  amount Int
+  currency String
+  status String @default("pending_payment")
+  // Snapshot terms at purchase time, independent of later catalog edits.
+  kind String
+  durationDays Int?
+  eventId String?
+  createdAt DateTime @default(now())
+  paidAt DateTime?
+  rejectionReason String?
+  user User @relation(fields:[userId],references:[id])
+  product Product @relation(fields:[productId],references:[id])
+  receipts Receipt[]
+  @@index([status,createdAt])
+  @@index([userId,productId])
+}
+model Receipt {
+  id String @id @default(cuid())
+  orderId String
+  fileId String
+  fileUniqueId String @unique
+  mediaType String
+  createdAt DateTime @default(now())
+  order Order @relation(fields:[orderId],references:[id])
+}
+model Entitlement {
+  id String @id @default(cuid())
+  userId String
+  productId String
+  expiresAt DateTime?
+  revokedAt DateTime?
+  user User @relation(fields:[userId],references:[id])
+  product Product @relation(fields:[productId],references:[id])
+  @@unique([userId,productId])
+  @@index([expiresAt])
+}
+model Event {
+  id String @id @default(cuid())
+  title String
+  description String
+  format String
+  startsAt DateTime
+  timezone String @default("Europe/Moscow")
+  location String
+  coverUrl String?
+  capacity Int
+  published Boolean @default(false)
+  registrationOpen Boolean @default(true)
+  productId String? @unique
+  product Product? @relation(fields:[productId],references:[id])
+  registrations Registration[]
+}
+model Registration {
+  id String @id @default(cuid())
+  userId String
+  eventId String
+  status String
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId],references:[id])
+  event Event @relation(fields:[eventId],references:[id])
+  @@unique([userId,eventId])
+  @@index([eventId,status])
+}
+model Invite {
+  id String @id @default(cuid())
+  userId String
+  link String @unique
+  expiresAt DateTime
+  usedAt DateTime?
+  user User @relation(fields:[userId],references:[id])
+}
+model Broadcast {
+  id String @id @default(cuid())
+  text String
+  segment String
+  eventId String?
+  scheduledAt DateTime
+  status String @default("draft")
+}
+model AutomationStep {
+  id String @id @default(cuid())
+  title String
+  delayDays Int
+  text String
+  productId String?
+  enabled Boolean @default(true)
+}
+model Job {
+  id String @id @default(cuid())
+  key String @unique
+  kind String
+  payload Json
+  runAt DateTime @default(now())
+  status String @default("pending")
+  attempts Int @default(0)
+  lockedAt DateTime?
+  lastError String?
+  createdAt DateTime @default(now())
+  @@index([status,runAt])
+}
+model TelegramUpdate {
+  id BigInt @id
+  payload Json
+  createdAt DateTime @default(now())
+}
+model UserEvent {
+  id String @id @default(cuid())
+  userId String
+  type String
+  target String?
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId],references:[id])
+  @@index([type,createdAt])
+}
+model Setting {
+  key String @id
+  value Json
+}
+model AuditLog {
+  id String @id @default(cuid())
+  actor String
+  action String
+  target String
+  createdAt DateTime @default(now())
+}
+model Consultation {
+  id String @id @default(cuid())
+  userId String
+  text String
+  status String @default("new")
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId],references:[id])
+}

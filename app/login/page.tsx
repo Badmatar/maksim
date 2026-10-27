@@ -1,0 +1,3 @@
+import Link from 'next/link';
+import { TelegramLogin } from './widget';
+export default function Login(){const name=process.env.NEXT_PUBLIC_BOT_USERNAME;return <main className="login-card"><Link className="wordmark" href="/">MAKSIM <span>CONTROL CENTER</span></Link><p className="eyebrow">ДЛЯ КОМАНДЫ</p><h1>Добро пожаловать</h1><p>Войдите через Telegram. Доступ разрешён только владельцу и приглашённым администраторам.</p>{name?<TelegramLogin username={name} url={`${process.env.APP_URL}/api/auth/telegram`}/>:<p className="notice">Вход пока не настроен. Задайте имя бота, токен и Telegram ID владельца в защищённых настройках сервера.</p>}<p className="muted">Сессия действует 8 часов.</p></main>;}
