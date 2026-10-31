@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
-    "build": "npm run db:generate && next build --webpack",
+    "build": "npm run db:generate && next build --webpack && node scripts/check-prisma-bundle.mjs",
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
