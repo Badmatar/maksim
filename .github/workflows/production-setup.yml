@@ -11,6 +11,7 @@ on:
         options:
           - database
           - webhook
+          - diagnostics
 
 permissions:
   contents: read
@@ -60,3 +61,11 @@ jobs:
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
           APP_URL: ${{ secrets.APP_URL }}
         run: npm run telegram:webhook
+
+      - name: Diagnose Telegram connection (read only)
+        if: inputs.operation == 'diagnostics'
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          APP_URL: ${{ secrets.APP_URL }}
+        run: npm run telegram:diagnostics

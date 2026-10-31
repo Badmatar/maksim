@@ -7,6 +7,7 @@ const routes = [
   'api/health/route',
   'api/cron/route',
   'api/telegram/webhook/route',
+  'api/telegram/diagnostics/route',
   'api/admin/[resource]/route',
   'admin/page',
 ];

@@ -6,3 +6,5 @@
 - [Соответствие ТЗ и состояние приёмки](acceptance.md)
 
 - [Vercel Hobby: внешний планировщик](hobby-scheduler.md)
+
+- [Бот не отвечает: безопасная диагностика](troubleshooting-bot.md)
