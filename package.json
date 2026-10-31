@@ -16,7 +16,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "worker": "tsx scripts/worker.ts",
     "telegram:webhook": "tsx scripts/webhook.ts",
-    "db:local": "tsx scripts/local-database.ts"
+    "db:local": "tsx scripts/local-database.ts",
+    "test:webhook": "tsx --test tests/webhook-setup.node.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^6.19.3",

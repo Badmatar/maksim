@@ -29,5 +29,6 @@ jobs:
       - run: npm ci
       - run: npm run db:generate
       - run: npm run db:local
+      - run: npm run test:webhook
       - run: npm test
       - run: npm run build
