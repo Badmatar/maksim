@@ -14,7 +14,7 @@ npm run db:seed
 npm run dev
 ```
 
-Worker запускается отдельно: `npm run worker`. В Vercel его вызывает защищённый минутный cron. Продакшен-миграции: `npm run db:deploy` с DIRECT_URL. Для тестов нужна отдельная TEST_DATABASE_URL с именем базы `_test`.
+Worker запускается отдельно: `npm run worker`. На Vercel Hobby его запускает внешний планировщик раз в минуту через защищённый `/api/cron`; встроенный минутный Vercel Cron отключён. [Настройка Hobby](docs/hobby-scheduler.md). Продакшен-миграции: `npm run db:deploy` с DIRECT_URL. Для тестов нужна отдельная TEST_DATABASE_URL с именем базы `_test`.
 
 ```sh
 npm run typecheck

@@ -17,7 +17,7 @@ async function main() {
     return;
   }
   console.log({ configured: true, pending: status.pending_update_count });
-  console.log('Webhook registered. Test /start and verify Vercel cron; registration alone does not confirm delivery.');
+  console.log('Webhook registered. Test /start and verify the external scheduler; registration alone does not confirm delivery.');
 }
 
 main().catch(error => {
