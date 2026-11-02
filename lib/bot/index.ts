@@ -4,6 +4,7 @@ import { defaultMenu, menu, setting, money } from '@/lib/content';
 import { createOrder, submitReceipt, approveOrder, rejectOrder, hasMeditation } from '@/lib/payments';
 import { registerFree } from '@/lib/events';
 import { roleFor } from '@/lib/auth';
+import { inspectBotLogin, approveBotLogin } from '@/lib/auth/bot-login';
 let singleton:Bot|undefined;
 export function getBot() {
  if(singleton)return singleton;
@@ -24,6 +25,10 @@ export function getBot() {
   await ctx.reply(await setting('menuText','Максим Машков | Пространство практик\n\nВыбери, с чего хочешь начать.'),{reply_markup:keyboard.resized()});
  }
  bot.command('start',async ctx=>{
+  if(ctx.match.startsWith('login_')) {
+   const id=ctx.match.slice(6);const pending=await inspectBotLogin(id,String(ctx.from!.id));
+   await ctx.reply(`Вход в панель управления ${pending.domain}.\nПодтверждайте, только если вы сами начали вход на этом сайте в своём браузере.`,{reply_markup:new InlineKeyboard().text('Подтвердить вход',`login_confirm:${id}`)});return;
+  }
   const u=await user(ctx.from!.id);
   if(u.onboarded){await showMenu(ctx);return;}
   await db.user.update({where:{id:u.id},data:{source:u.source??(ctx.match||'direct').slice(0,64)}});
@@ -79,6 +84,7 @@ export function getBot() {
  bot.on('callback_query:data',async ctx=>{
   await ctx.answerCallbackQuery();
   const [type,id]=ctx.callbackQuery.data.split(':');const u=await user(ctx.from!.id);
+  if(type==='login_confirm'){await approveBotLogin(id,String(ctx.from!.id));await ctx.reply('Вход подтверждён. Вернитесь в тот браузер, где начали вход: страница откроется автоматически.');return;}
   if(type==='approve'||type==='reject') {
    if(!await roleFor(String(ctx.from!.id)))throw new DomainError('Недостаточно прав');
    if(type==='approve')await approveOrder(id,String(ctx.from!.id));else await rejectOrder(id,String(ctx.from!.id),'Поступление не подтверждено. Уточните данные у администратора.');

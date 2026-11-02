@@ -16,9 +16,9 @@ export function encodeSession(p:Principal) { const value=Buffer.from(JSON.string
 export function decodeSession(raw:string):Principal|null {
   try { const [value,sig]=raw.split('.'); if(!equal(createHmac('sha256',secret()).update(value).digest('base64url'),sig??''))return null; const p=JSON.parse(Buffer.from(value,'base64url').toString()); return /^\d+$/.test(p.telegramId)&&p.exp>Date.now() ? p : null; } catch { return null; }
 }
-export async function roleFor(id:string):Promise<Principal['role']|null> {
+export async function roleFor(id:string,client:Pick<typeof db,'admin'>=db):Promise<Principal['role']|null> {
   if((process.env.OWNER_TELEGRAM_IDS??'').split(',').map(s=>s.trim()).includes(id))return 'OWNER';
-  const a=await db.admin.findUnique({where:{telegramId:BigInt(id)}}); return a?.enabled&&['ADMIN','OWNER'].includes(a.role)?a.role as Principal['role']:null;
+  const a=await client.admin.findUnique({where:{telegramId:BigInt(id)}}); return a?.enabled&&['ADMIN','OWNER'].includes(a.role)?a.role as Principal['role']:null;
 }
 export async function requireAdmin(owner=false) {
   const session=decodeSession((await cookies()).get('maksim_session')?.value??'');

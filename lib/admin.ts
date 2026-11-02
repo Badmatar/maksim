@@ -33,7 +33,7 @@ export async function listResource(resource:string,query:string) {
   case 'broadcasts':return db.broadcast.findMany({orderBy:{scheduledAt:'desc'},take:100});
   case 'automations':return db.automationStep.findMany({orderBy:{delayDays:'asc'}});
   case 'admins':return db.admin.findMany();
-  case 'settings':return db.setting.findMany({where:{key:{not:'maintenanceLease'}}});
+  case 'settings':return db.setting.findMany({where:{AND:[{key:{not:'maintenanceLease'}},{key:{not:'botLoginRate'}},{NOT:{key:{startsWith:'botLogin:'}}}]}});
   case 'audit':return db.auditLog.findMany({orderBy:{createdAt:'desc'},take:100});
   case 'jobs':return db.job.findMany({where:{status:{in:['failed','pending','running']}},select:{id:true,kind:true,status:true,attempts:true,lastError:true,runAt:true},orderBy:{runAt:'asc'},take:100});
   case 'consultations':return db.consultation.findMany({include:{user:true},orderBy:{createdAt:'desc'},take:100});

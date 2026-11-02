@@ -1,10 +1,12 @@
 import { beforeAll,beforeEach,afterAll,it,expect,vi } from 'vitest';
 import { db } from '@/lib/db';
 import { getBot } from '@/lib/bot';
+import { createBotLogin, consumeBotLogin } from '@/lib/auth/bot-login';
 import type { Update } from 'grammy/types';
 const calls:{method:string;payload:any}[]=[];
 let sequence=1000;
 beforeAll(async()=>{
+ vi.stubEnv('AUTH_SECRET','local-bot-integration-auth-key-32-characters');vi.stubEnv('APP_URL','https://example.vercel.app');vi.stubEnv('NEXT_PUBLIC_BOT_USERNAME','testbot');
  vi.stubEnv('BOT_TOKEN','123456:test-only');vi.stubEnv('OWNER_TELEGRAM_IDS','12345');vi.stubEnv('COMMUNITY_CHAT_ID','-100123');
  const bot=getBot();bot.api.config.use(async(_prev,method,payload)=>{
   calls.push({method,payload});
@@ -41,4 +43,15 @@ it('requires explicit marketing consent and unsubscribe prevents later marketing
 it('denies forged admin payment callbacks and ignores group commands',async()=>{
  await getBot().handleUpdate(callback('approve:nonexistent',999));expect(calls.some(c=>c.method==='sendMessage'&&c.payload.text==='Недостаточно прав')).toBe(true);
  const update=message('/start',777) as any;update.message.chat={id:-123,type:'group',title:'Группа'};calls.length=0;await getBot().handleUpdate(update);expect(calls.length).toBe(0);expect(await db.user.findUnique({where:{telegramId:777n}})).toBe(null);
+});
+
+it('logs an allowed admin in through explicit bot confirmation without the phone login widget',async()=>{
+ const pending=await createBotLogin();const id=pending.cookie.split('.')[0];
+ await getBot().handleUpdate(message(`/start login_${id}`));
+ expect(calls.some(c=>c.method==='sendMessage'&&c.payload.text.includes('Подтверждайте'))).toBe(true);
+ expect(await consumeBotLogin(pending.cookie)).toEqual({status:'pending'});
+ await getBot().handleUpdate(callback(`login_confirm:${id}`,999));
+ expect(await consumeBotLogin(pending.cookie)).toEqual({status:'pending'});
+ await getBot().handleUpdate(callback(`login_confirm:${id}`));
+ expect(await consumeBotLogin(pending.cookie)).toMatchObject({status:'approved',principal:{telegramId:'12345',role:'OWNER'}});
 });

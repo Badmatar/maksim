@@ -1,6 +1,6 @@
 # MAKSIM MASHKOV · Digital Ecosystem
 
-Telegram-бот и веб-панель управления практиками, продуктами, оплатами, сообществом и мероприятиями. Next.js 16, TypeScript, grammY (webhook), Prisma 6 с PostgreSQL driver adapter, Tailwind CSS и shadcn/ui Button. Авторизация — Telegram Login с серверной проверкой подписи и ролей.
+Telegram-бот и веб-панель управления практиками, продуктами, оплатами, сообществом и мероприятиями. Next.js 16, TypeScript, grammY (webhook), Prisma 6 с PostgreSQL driver adapter, Tailwind CSS и shadcn/ui Button. Авторизация — одноразовый вход через бота с привязкой к браузеру и проверкой ролей; также сохранён Telegram Login. [Как войти](docs/admin-login.md).
 
 ## Запуск
 

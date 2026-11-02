@@ -5,6 +5,7 @@ import path from 'node:path';
 // at build time if a database function would ship without Prisma's compiler.
 const routes = [
   'api/health/route',
+  'api/auth/bot/route',
   'api/cron/route',
   'api/telegram/webhook/route',
   'api/telegram/diagnostics/route',
