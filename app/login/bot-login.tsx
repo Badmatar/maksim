@@ -9,7 +9,7 @@ export function BotLogin() {
   async function begin() {
     setBusy(true); setError('');
     try {
-      const response = await fetch('/api/auth/bot', { method: 'POST', cache: 'no-store' });
+      const response = await fetch('/api/auth/bot', { method: 'POST', cache: 'no-store', headers: { 'X-Maksim-Client-Origin': window.location.origin } });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? 'Не удалось начать вход.');
       setPending(data);

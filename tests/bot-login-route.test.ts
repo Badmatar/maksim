@@ -23,6 +23,7 @@ it('rejects cross-origin creation before allocating a challenge', async () => {
 it('sets a private browser cookie but only exposes the bot deep link to JavaScript', async () => {
   const response = await POST(new Request('https://example.vercel.app/api/auth/bot', { method: 'POST', headers: { origin: 'https://example.vercel.app' } }));
   expect(response.status).toBe(200); expect(JSON.stringify(await response.json())).not.toContain('private-binding');
+  expect(state.create).toHaveBeenCalledWith('browser-binding', 'https://example.vercel.app');
   const cookie = response.headers.get('set-cookie')!;
   expect(cookie).toContain('HttpOnly'); expect(cookie).toContain('SameSite=strict'); expect(cookie).toContain('Path=/api/auth/bot');
 });
@@ -44,4 +45,14 @@ it('rejects cross-site polling and reports expired challenges', async () => {
   expect((await GET(new Request('https://example.vercel.app/api/auth/bot', { headers: { 'sec-fetch-site': 'cross-site' } }))).status).toBe(403);
   expect(state.consume).not.toHaveBeenCalled(); state.consume.mockResolvedValue({ status: 'expired' });
   expect((await GET(new Request('https://example.vercel.app/api/auth/bot'))).status).toBe(410);
+});
+
+it('creates a challenge for the actual served origin when APP_URL is stale', async () => {
+  vi.stubEnv('APP_URL', 'https://old.example');
+  const response = await POST(new Request('https://example.vercel.app/api/auth/bot', { method: 'POST', headers: { origin: 'https://example.vercel.app', 'sec-fetch-site': 'same-origin' } }));
+  expect(response.status).toBe(200); expect(state.create).toHaveBeenCalledWith('browser-binding', 'https://example.vercel.app');
+});
+it('accepts an Origin-stripped request only with verified same-origin evidence', async () => {
+  const response = await POST(new Request('https://example.vercel.app/api/auth/bot', { method: 'POST', headers: { 'x-maksim-client-origin': 'https://example.vercel.app', 'sec-fetch-site': 'same-origin' } }));
+  expect(response.status).toBe(200); expect(state.create).toHaveBeenCalledWith('browser-binding', 'https://example.vercel.app');
 });

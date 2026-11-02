@@ -77,3 +77,9 @@ it('does not expose pending login records in the settings editor', async () => {
   await createBotLogin();
   expect(await listResource('settings', '')).toEqual([]);
 });
+
+it('uses the verified request origin for the bot confirmation when APP_URL is stale', async () => {
+  vi.stubEnv('APP_URL', 'https://old.example');
+  const pending = await createBotLogin('', 'https://actual.example');
+  expect(await inspectBotLogin(id(pending.cookie), '12345')).toEqual({ domain: 'actual.example' });
+});

@@ -16,8 +16,8 @@ function failure(error: unknown) {
 }
 export async function POST(req: Request) {
   try {
-    checkOrigin(req);
-    const pending = await createBotLogin((await cookies()).get(BOT_LOGIN_COOKIE)?.value ?? '');
+    const requestOrigin = checkOrigin(req);
+    const pending = await createBotLogin((await cookies()).get(BOT_LOGIN_COOKIE)?.value ?? '', requestOrigin);
     const response = NextResponse.json({ botUrl: pending.botUrl, expiresAt: pending.expiresAt }, { headers });
     response.cookies.set(BOT_LOGIN_COOKIE, pending.cookie, { ...cookieOptions, maxAge: Math.max(0, Math.ceil((pending.expiresAt - Date.now()) / 1000)) });
     return response;

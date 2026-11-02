@@ -26,8 +26,5 @@ export async function requireAdmin(owner=false) {
   if(!session||!role||(owner&&role!=='OWNER'))throw new Error('UNAUTHORIZED');
   return {...session,role};
 }
-export function checkOrigin(req:Request) {
-  const expected=new URL(process.env.APP_URL??req.url).origin;
-  if(req.headers.get('origin')!==expected)throw new Error('FORBIDDEN_ORIGIN');
-}
+export { checkOrigin } from './request-origin';
 export function randomSecret() { return randomBytes(32).toString('hex'); }

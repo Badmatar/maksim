@@ -29,17 +29,17 @@ function challenge(value: unknown): Challenge | null {
   const c = value as Challenge;
   return typeof c.browserHash === 'string' && typeof c.expiresAt === 'number' && ['pending', 'approved', 'consumed'].includes(c.state) ? c : null;
 }
-function config() {
+function config(requestOrigin?: string) {
   authKey();
   const username = process.env.NEXT_PUBLIC_BOT_USERNAME ?? '';
   if (!/^[A-Za-z0-9_]{5,32}$/.test(username) || !process.env.BOT_TOKEN?.trim()) throw new BotLoginConfigError('Проверьте BOT_TOKEN и NEXT_PUBLIC_BOT_USERNAME в настройках сервера.');
   let app: URL;
-  try { app = new URL(process.env.APP_URL ?? ''); } catch { throw new BotLoginConfigError('Проверьте APP_URL в настройках сервера.'); }
+  try { app = new URL(requestOrigin ?? process.env.APP_URL ?? ''); } catch { throw new BotLoginConfigError('Проверьте APP_URL в настройках сервера.'); }
   if (app.username || app.password || app.search || app.hash || app.pathname !== '/' || (app.protocol !== 'https:' && !(app.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(app.hostname)))) throw new BotLoginConfigError('APP_URL должен содержать только адрес приложения.');
   return { username, origin: app.origin };
 }
-export async function createBotLogin(existingCookie = '') {
-  const { username, origin } = config();
+export async function createBotLogin(existingCookie = '', requestOrigin?: string) {
+  const { username, origin } = config(requestOrigin);
   const existing = cookieParts(existingCookie);
   if (existing) {
     const c = challenge((await db.setting.findUnique({ where: { key: PREFIX + existing.id } }))?.value);
