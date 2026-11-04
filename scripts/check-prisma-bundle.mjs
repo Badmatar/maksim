@@ -11,6 +11,7 @@ const routes = [
   'api/telegram/diagnostics/route',
   'api/admin/[resource]/route',
   'admin/page',
+  'miniapp/page',
 ];
 const compiler = path.resolve('node_modules/.prisma/client/query_compiler_bg.wasm');
 const header = (await readFile(compiler)).subarray(0, 4);
@@ -26,3 +27,14 @@ for (const route of routes) {
   }
 }
 console.log(`Prisma compiler WASM verified in ${routes.length} serverless route traces.`);
+
+// The queue worker reads the welcome banner from disk on Vercel.
+const banner = path.resolve('public/images/maksim-welcome.png');
+for (const route of ['api/cron/route', 'api/telegram/webhook/route']) {
+  const tracePath = path.resolve('.next/server/app', `${route}.js.nft.json`);
+  const trace = JSON.parse(await readFile(tracePath, 'utf8'));
+  if (!trace.files.some(file => path.resolve(path.dirname(tracePath), file) === banner)) {
+    throw new Error(`Welcome banner is missing from the deployment trace for ${route}.`);
+  }
+}
+console.log('Bot welcome banner verified in worker and webhook deployment traces.');

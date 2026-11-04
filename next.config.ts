@@ -7,7 +7,7 @@ const config: NextConfig = {
   // Prisma loads the Rust-free query compiler dynamically from the generated
   // client directory. Include it explicitly in every serverless function trace.
   outputFileTracingIncludes: {
-    '/*': ['./node_modules/.prisma/client/**/*'],
+    '/*': ['./node_modules/.prisma/client/**/*', './public/images/maksim-welcome.png'],
   },
   async headers() {
     return [{
@@ -15,8 +15,11 @@ const config: NextConfig = {
       headers: [
         { key: 'X-Content-Type-Options', value: 'nosniff' },
         { key: 'Referrer-Policy', value: 'same-origin' },
-        { key: 'X-Frame-Options', value: 'DENY' },
+        { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
       ],
+    }, {
+      source: '/miniapp',
+      headers: [{ key: 'Content-Security-Policy', value: "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org" }],
     }];
   },
 };

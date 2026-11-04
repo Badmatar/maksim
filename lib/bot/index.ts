@@ -1,4 +1,6 @@
-import { Bot, InlineKeyboard, Keyboard, type Context } from 'grammy';
+import { Bot, InlineKeyboard, Keyboard, InputFile, type Context } from 'grammy';
+import path from 'node:path';
+import { miniappUrl, miniappAction } from '@/lib/miniapp';
 import { db, DomainError, transaction, enqueue } from '@/lib/db';
 import { defaultMenu, menu, setting, money } from '@/lib/content';
 import { createOrder, submitReceipt, approveOrder, rejectOrder, hasMeditation } from '@/lib/payments';
@@ -21,7 +23,9 @@ export function getBot() {
  async function user(id:number){return db.user.findUniqueOrThrow({where:{telegramId:BigInt(id)}});}
  async function showMenu(ctx:Context) {
   const entries=(await menu()).filter(x=>!x.hidden);
-  const keyboard=new Keyboard();entries.forEach((x,i)=>{keyboard.text(x.label);if(i%2===1)keyboard.row();});
+  const keyboard=new Keyboard();const appUrl=miniappUrl();
+  if(appUrl)keyboard.webApp('✨ Войти в приложение',appUrl).row();
+  entries.forEach((x,i)=>{keyboard.text(x.label);if(i%2===1)keyboard.row();});
   await ctx.reply(await setting('menuText','Максим Машков | Пространство практик\n\nВыбери, с чего хочешь начать.'),{reply_markup:keyboard.resized()});
  }
  bot.command('start',async ctx=>{
@@ -29,10 +33,17 @@ export function getBot() {
    const id=ctx.match.slice(6);const pending=await inspectBotLogin(id,String(ctx.from!.id));
    await ctx.reply(`Вход в панель управления ${pending.domain}.\nПодтверждайте, только если вы сами начали вход на этом сайте в своём браузере.`,{reply_markup:new InlineKeyboard().text('Подтвердить вход',`login_confirm:${id}`)});return;
   }
+  const requested=miniappAction(ctx.match);
+  if(requested){await action(ctx,requested);return;}
   const u=await user(ctx.from!.id);
+  if(!u.onboarded)await db.user.update({where:{id:u.id},data:{source:u.source??(ctx.match||'direct').slice(0,64)}});
+  const welcome=await setting('welcome','Добро пожаловать в MAKSIM.\n\nПространство практик Максима Машкова. Место, где можно замедлиться, услышать себя и вернуться к настоящему.\n\n✧ Медитации и ежедневные практики\n✧ Живые встречи\n✧ Сообщество и поддержка\n\nНачните с одного бережного шага к себе.');
+  const appUrl=miniappUrl();
+  const entrance=appUrl?new Keyboard().webApp('✨ Войти в приложение',appUrl).resized().persistent().placeholder('Нажмите «Войти в приложение» ↓'):undefined;
+  await ctx.replyWithPhoto(new InputFile(path.join(process.cwd(),'public/images/maksim-welcome.png')), {caption:welcome.length<=1024?welcome:undefined,reply_markup:entrance});
+  if(welcome.length>1024)await ctx.reply(welcome);
+  if(appUrl)await ctx.api.setChatMenuButton({chat_id:ctx.chat.id,menu_button:{type:'web_app',text:'Открыть',web_app:{url:appUrl}}});
   if(u.onboarded){await showMenu(ctx);return;}
-  await db.user.update({where:{id:u.id},data:{source:u.source??(ctx.match||'direct').slice(0,64)}});
-  await ctx.reply(await setting('welcome','Добро пожаловать в пространство практик Максима Машкова. Здесь можно остановиться, услышать себя и вернуться к настоящему.'));
   const video=await setting('welcomeVideo');if(video)await ctx.replyWithVideo(video);
   await ctx.reply('Начнём с бесплатной практики?',{reply_markup:new InlineKeyboard().text('🌿 Получить практику','free')});
  });

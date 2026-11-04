@@ -23,7 +23,7 @@ function callback(data:string,id=12345):Update{return {update_id:sequence++,call
 it('runs first start, free audio and repeat start preserving attribution and purchases',async()=>{
  await db.meditation.create({data:{title:'Бесплатная',description:'Тест',category:'Тест',durationMinutes:10,audioFileId:'audio-id',free:true,published:true}});
  await getBot().handleUpdate(message('/start instagram'));
- const u=await db.user.findUniqueOrThrow({where:{telegramId:12345n}});expect(u.source).toBe('instagram');expect(calls.some(c=>c.method==='sendMessage'&&c.payload.text.includes('Добро пожаловать'))).toBe(true);
+ const u=await db.user.findUniqueOrThrow({where:{telegramId:12345n}});expect(u.source).toBe('instagram');expect(calls.some(c=>c.method==='sendPhoto'&&c.payload.caption?.includes('Добро пожаловать'))).toBe(true);
  await getBot().handleUpdate(callback('free'));expect(calls.some(c=>c.method==='sendAudio'&&c.payload.audio==='audio-id')).toBe(true);expect((await db.user.findUniqueOrThrow({where:{id:u.id}})).onboarded).toBe(true);
  calls.length=0;await getBot().handleUpdate(message('/start another-source'));expect(calls.filter(c=>c.method==='sendMessage')).toHaveLength(1);expect((await db.user.findUniqueOrThrow({where:{id:u.id}})).source).toBe('instagram');expect(await db.user.count()).toBe(1);
 });
@@ -54,4 +54,23 @@ it('logs an allowed admin in through explicit bot confirmation without the phone
  expect(await consumeBotLogin(pending.cookie)).toEqual({status:'pending'});
  await getBot().handleUpdate(callback(`login_confirm:${id}`));
  expect(await consumeBotLogin(pending.cookie)).toMatchObject({status:'approved',principal:{telegramId:'12345',role:'OWNER'}});
+});
+
+it('opens the miniapp from the welcome card and keeps the app button in the repeat menu',async()=>{
+ await getBot().handleUpdate(message('/start'));
+ const card=calls.find(c=>c.method==='sendPhoto');
+ expect(card?.payload.reply_markup.keyboard[0][0].web_app.url).toBe('https://example.vercel.app/miniapp');
+ expect(calls.some(c=>c.method==='setChatMenuButton'&&c.payload.menu_button.type==='web_app')).toBe(true);
+ await db.user.update({where:{telegramId:12345n},data:{onboarded:true}});calls.length=0;
+ await getBot().handleUpdate(message('/start'));
+ expect(calls.find(c=>c.method==='sendMessage')?.payload.reply_markup.keyboard[0][0].web_app.url).toBe('https://example.vercel.app/miniapp');
+});
+it('routes miniapp links without resending onboarding or bypassing paid access',async()=>{
+ const m=await db.meditation.create({data:{title:'Платная',description:'Тест',category:'Тест',durationMinutes:10,audioFileId:'protected-audio',published:true}});
+ await getBot().handleUpdate(message('/start open_meditations'));
+ expect(calls.some(c=>c.method==='sendPhoto')).toBe(false);
+ expect(calls.some(c=>c.method==='sendMessage'&&c.payload.text.includes('Платная'))).toBe(true);
+ await getBot().handleUpdate(callback('med:'+m.id));
+ expect(calls.some(c=>c.method==='sendAudio')).toBe(false);
+ expect((await db.user.findUniqueOrThrow({where:{telegramId:12345n}})).onboarded).toBe(false);
 });
