@@ -1,5 +1,6 @@
 import { Bot, InlineKeyboard, Keyboard, InputFile, type Context } from 'grammy';
 import path from 'node:path';
+import { writtenPractices, writtenPractice, practiceText, commonQuestions } from '@/lib/editorial';
 import { miniappUrl, miniappAction } from '@/lib/miniapp';
 import { db, DomainError, transaction, enqueue } from '@/lib/db';
 import { defaultMenu, menu, setting, money } from '@/lib/content';
@@ -26,7 +27,7 @@ export function getBot() {
   const keyboard=new Keyboard();const appUrl=miniappUrl();
   if(appUrl)keyboard.webApp('✨ Войти в приложение',appUrl).row();
   entries.forEach((x,i)=>{keyboard.text(x.label);if(i%2===1)keyboard.row();});
-  await ctx.reply(await setting('menuText','Максим Машков | Пространство практик\n\nВыбери, с чего хочешь начать.'),{reply_markup:keyboard.resized()});
+  await ctx.reply(await setting('menuText'),{reply_markup:keyboard.resized()});
  }
  bot.command('start',async ctx=>{
   if(ctx.match.startsWith('login_')) {
@@ -37,7 +38,7 @@ export function getBot() {
   if(requested){await action(ctx,requested);return;}
   const u=await user(ctx.from!.id);
   if(!u.onboarded)await db.user.update({where:{id:u.id},data:{source:u.source??(ctx.match||'direct').slice(0,64)}});
-  const welcome=await setting('welcome','Добро пожаловать в MAKSIM.\n\nПространство практик Максима Машкова. Место, где можно замедлиться, услышать себя и вернуться к настоящему.\n\n✧ Медитации и ежедневные практики\n✧ Живые встречи\n✧ Сообщество и поддержка\n\nНачните с одного бережного шага к себе.');
+  const welcome=await setting('welcome');
   const appUrl=miniappUrl();
   const entrance=appUrl?new Keyboard().webApp('✨ Войти в приложение',appUrl).resized().persistent().placeholder('Нажмите «Войти в приложение» ↓'):undefined;
   await ctx.replyWithPhoto(new InputFile(path.join(process.cwd(),'public/images/maksim-welcome.png')), {caption:welcome.length<=1024?welcome:undefined,reply_markup:entrance});
@@ -53,6 +54,9 @@ export function getBot() {
   await ctx.reply('MAKSIM · Пространство практик\n\nНажмите кнопку ниже, чтобы открыть приложение.',{reply_markup:new InlineKeyboard().webApp('✨ Войти в приложение',appUrl)});
  });
  bot.command('menu',async ctx=>{await showMenu(ctx);});
+ bot.command('help',async ctx=>{await ctx.reply('MAKSIM · Как начать\n\n/app — открыть приложение\n/menu — все разделы\n/free — бесплатная текстовая или аудиопрактика\n/questions — ответы на частые вопросы\n/cancel — отменить ввод заявки\n\nДля первого знакомства выберите «Почувствовать опору»: короткая практика внимания к себе.');});
+ bot.command('free',async ctx=>{await action(ctx,'free');});
+ bot.command('questions',async ctx=>{await ctx.reply(commonQuestions.map(item=>`${item.question}\n${item.answer}`).join('\n\n'));});
  bot.command('unsubscribe',async ctx=>{await db.user.update({where:{telegramId:BigInt(ctx.from!.id)},data:{marketingConsent:false}});await ctx.reply('Вы отписались от маркетинговых сообщений. Уведомления по заказам и событиям сохранятся.');});
  bot.command('subscribe',async ctx=>{await ctx.reply('Разрешаете присылать новости и предложения? Отказ: /unsubscribe. Политика обработки данных доступна по команде /privacy.',{reply_markup:new InlineKeyboard().text('Да, подписаться','consent')});});
  bot.command('privacy',async ctx=>{await ctx.reply(await setting('privacy','Сохраняем Telegram ID, имя, заявки и покупки для работы сервиса. Не отправляйте сведения о здоровье. Для удаления данных обратитесь к администратору через раздел «Консультация».'));});
@@ -69,26 +73,29 @@ export function getBot() {
   const u=await user(ctx.from!.id);
   if(name==='free') {
    const m=await db.meditation.findFirst({where:{free:true,published:true}});
-   if(!m){await ctx.reply('Бесплатная практика скоро появится. Остальные разделы доступны в меню ниже.');await showMenu(ctx);return;}
+   if(!m){await ctx.reply(practiceText(writtenPractices[0]));await showMenu(ctx);return;}
    await ctx.replyWithAudio(m.audioFileId,{caption:m.title});
    await db.user.update({where:{id:u.id},data:{freeReceived:true,onboarded:true}});
    await showMenu(ctx);return;
   }
   if(name==='meditations') {
    const list=await db.meditation.findMany({where:{published:true}});
-   if(!list.length)await ctx.reply('Практики скоро появятся.');
+   const reading=new InlineKeyboard();writtenPractices.forEach(p=>reading.text(`${p.title} · ${p.minutes} мин`,`read:${p.id}`).row());
+   await ctx.reply('Небольшие практики для обычного дня. Выберите текстовую инструкцию: её можно читать в своём темпе, без подготовки. Опубликованные аудиозаписи, если они есть, показаны ниже.',{reply_markup:reading});
    for(const m of list){if(m.coverUrl)await ctx.replyWithPhoto(m.coverUrl);await ctx.reply(`${m.title} · ${m.durationMinutes} мин\n${m.category}\n${m.description}`,{reply_markup:new InlineKeyboard().text(m.free?'Слушать бесплатно':'Открыть',`med:${m.id}`)});}
   } else if(name==='events') {
    const events=await db.event.findMany({where:{published:true,startsAt:{gt:new Date()}},include:{product:true},orderBy:{startsAt:'asc'}});
-   if(!events.length)await ctx.reply('Новые встречи скоро появятся.');
+   await ctx.reply(await setting('eventsText'));
+   if(!events.length)await ctx.reply('Открытых записей на встречи пока нет. Когда появится событие с датой, его карточка будет доступна в этом разделе.');
    for(const e of events){if(e.coverUrl)await ctx.replyWithPhoto(e.coverUrl);await ctx.reply(`${e.title}\n${e.description}\n${e.startsAt.toLocaleString('ru-RU',{timeZone:e.timezone})} (${e.timezone})\n${e.format}\n${e.product?money(e.product.price,e.product.currency):'Бесплатно'}`,{reply_markup:new InlineKeyboard().text('Записаться',`event:${e.id}`)});}
   } else if(name==='community') {
    const ps=await db.product.findMany({where:{kind:'COMMUNITY',published:true}});
-   if(!ps.length)await ctx.reply('Набор в сообщество скоро откроется.');
+   await ctx.reply(await setting('communityText'));
+   if(!ps.length)await ctx.reply('Предложения для вступления пока не опубликованы. Если хотите узнать об участии, оставьте вопрос в разделе «Консультация».');
    for(const p of ps)await ctx.reply(`${p.title}\n${p.description}\n${money(p.price,p.currency)} · ${p.durationDays?`${p.durationDays} дней`:'Бессрочно'}`,{reply_markup:new InlineKeyboard().text('Оформить доступ',`buy:${p.id}`)});
-  } else if(name==='about')await ctx.reply(await setting('about','Максим Машков — психолог, психотерапевт и тренер личностного роста.'));
+  } else if(name==='about')await ctx.reply(await setting('about'));
   else if(name==='channel') {const url=process.env.PUBLIC_CHANNEL_URL;await ctx.reply(url?`Открытый канал: ${url}`:'Ссылка на канал скоро появится.');}
-  else if(name==='consultation') {await db.user.update({where:{id:u.id},data:{awaitingConsultation:true}});await ctx.reply('Отправьте краткий запрос. Контактные данные — по желанию. Не указывайте диагнозы и медицинские сведения. /cancel — отмена.');}
+  else if(name==='consultation') {await db.user.update({where:{id:u.id},data:{awaitingConsultation:true}});await ctx.reply(await setting('consultationText'));}
   else if(name==='access') {
    const access=await db.entitlement.findMany({where:{userId:u.id,revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},include:{product:true}});
    await ctx.reply(access.length?access.map(a=>`${a.product.title}: ${a.expiresAt?a.expiresAt.toLocaleDateString('ru-RU',{timeZone:'Europe/Moscow'}):'бессрочно'}`).join('\n'):'Активных доступов пока нет.');
@@ -101,6 +108,7 @@ export function getBot() {
  bot.on('callback_query:data',async ctx=>{
   await ctx.answerCallbackQuery();
   const [type,id]=ctx.callbackQuery.data.split(':');const u=await user(ctx.from!.id);
+  if(type==='read'){const practice=writtenPractice(id);if(!practice)throw new DomainError('Эта текстовая практика не найдена. Откройте раздел «Медитации».');await ctx.reply(practiceText(practice));return;}
   if(type==='login_confirm'){await approveBotLogin(id,String(ctx.from!.id));await ctx.reply('Вход подтверждён. Вернитесь в тот браузер, где начали вход: страница откроется автоматически.');return;}
   if(type==='approve'||type==='reject') {
    if(!await roleFor(String(ctx.from!.id)))throw new DomainError('Недостаточно прав');

@@ -75,9 +75,9 @@ it('routes miniapp links without resending onboarding or bypassing paid access',
  expect((await db.user.findUniqueOrThrow({where:{telegramId:12345n}})).onboarded).toBe(false);
 });
 
-it('keeps an app entrance when a free practice has not been published',async()=>{
+it('delivers a written free practice and app entrance when audio is not published',async()=>{
  await getBot().handleUpdate(message('/start open_free'));
- expect(calls.some(c=>c.method==='sendMessage'&&c.payload.text.includes('Бесплатная практика скоро появится'))).toBe(true);
+ expect(calls.some(c=>c.method==='sendMessage'&&c.payload.text.includes('Почувствовать опору')&&c.payload.text.includes('Текстовая практика'))).toBe(true);
  expect(calls.some(c=>c.method==='sendMessage'&&c.payload.reply_markup?.keyboard?.[0]?.[0]?.web_app?.url==='https://example.vercel.app/miniapp')).toBe(true);
  expect(calls.some(c=>c.method==='sendAudio')).toBe(false);
  const u=await db.user.findUniqueOrThrow({where:{telegramId:12345n}});expect(u.freeReceived).toBe(false);expect(u.onboarded).toBe(false);
@@ -94,4 +94,17 @@ it('offers the existing menu if the app address is not configured',async()=>{
  expect(calls.some(c=>c.method==='sendMessage'&&c.payload.text.includes('Приложение пока не подключено'))).toBe(true);
  expect(calls.some(c=>c.method==='sendMessage'&&c.payload.reply_markup?.keyboard?.some((row:any[])=>row.some(button=>button.text==='🧘 Медитации')))).toBe(true);
  }finally{process.env.APP_URL=appUrl;}
+});
+
+it('opens a complete written guide through its callback and denies arbitrary paid IDs',async()=>{
+ await getBot().handleUpdate(callback('read:breathing'));
+ expect(calls.some(c=>c.method==='sendMessage'&&c.payload.text.includes('Вернуться к дыханию')&&c.payload.text.includes('4.'))).toBe(true);
+ calls.length=0;await getBot().handleUpdate(callback('read:paid-audio-id'));
+ expect(calls.some(c=>c.method==='sendMessage'&&c.payload.text.includes('не найдена'))).toBe(true);expect(calls.some(c=>c.method==='sendAudio')).toBe(false);
+});
+it('shows useful community information while preserving a custom editorial text',async()=>{
+ await db.setting.create({data:{key:'communityText',value:'Наше собственное описание сообщества'}});
+ await getBot().handleUpdate(message('/start open_community'));
+ expect(calls.some(c=>c.method==='sendMessage'&&c.payload.text==='Наше собственное описание сообщества')).toBe(true);
+ expect(await db.product.count()).toBe(0);expect(await db.order.count()).toBe(0);
 });

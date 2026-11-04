@@ -74,8 +74,10 @@ it('limits public challenge creation to prevent unbounded database growth', asyn
 });
 
 it('does not expose pending login records in the settings editor', async () => {
-  await createBotLogin();
-  expect(await listResource('settings', '')).toEqual([]);
+  const pending = await createBotLogin();
+  const settings = await listResource('settings', '') as {key:string}[];
+  expect(settings.some(row => row.key.startsWith('botLogin:') || row.key === 'botLoginRate')).toBe(false);
+  expect(JSON.stringify(settings)).not.toContain(pending.cookie.split('.')[1]);
 });
 
 it('uses the verified request origin for the bot confirmation when APP_URL is stale', async () => {

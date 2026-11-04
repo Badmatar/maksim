@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { defaultTexts, resolveEditorialText } from '@/lib/editorial';
 import { db, transaction, DomainError } from '@/lib/db';
 const text=z.string().trim().min(1).max(3000),id=z.string().min(1),optional=z.string().nullable().optional();
 const url=z.union([z.literal(''),z.url().refine(x=>x.startsWith('https://'),'Требуется HTTPS')]).nullable().optional();
@@ -33,7 +34,10 @@ export async function listResource(resource:string,query:string) {
   case 'broadcasts':return db.broadcast.findMany({orderBy:{scheduledAt:'desc'},take:100});
   case 'automations':return db.automationStep.findMany({orderBy:{delayDays:'asc'}});
   case 'admins':return db.admin.findMany();
-  case 'settings':return db.setting.findMany({where:{AND:[{key:{not:'maintenanceLease'}},{key:{not:'botLoginRate'}},{NOT:{key:{startsWith:'botLogin:'}}}]}});
+  case 'settings': {
+   const rows=await db.setting.findMany({where:{AND:[{key:{not:'maintenanceLease'}},{key:{not:'botLoginRate'}},{NOT:{key:{startsWith:'botLogin:'}}}]}});
+   return [...Object.keys(defaultTexts).map(key=>({key,value:resolveEditorialText(key,rows.find(row=>row.key===key)?.value)})),...rows.filter(row=>!Object.hasOwn(defaultTexts,row.key))];
+  }
   case 'audit':return db.auditLog.findMany({orderBy:{createdAt:'desc'},take:100});
   case 'jobs':return db.job.findMany({where:{status:{in:['failed','pending','running']}},select:{id:true,kind:true,status:true,attempts:true,lastError:true,runAt:true},orderBy:{runAt:'asc'},take:100});
   case 'consultations':return db.consultation.findMany({include:{user:true},orderBy:{createdAt:'desc'},take:100});
@@ -45,7 +49,7 @@ export async function saveResource(resource:string,raw:unknown,actor:string) {
  return transaction(async tx=>{
   let saved:unknown;
   if(resource==='settings') {
-   const s=z.object({key:z.enum(['welcome','welcomeVideo','about','menuText','privacy','menu']),value:z.unknown()}).parse(body.data);
+   const s=z.object({key:z.enum(['welcome','welcomeVideo','about','menuText','privacy','menu','eventsText','communityText','consultationText']),value:z.unknown()}).parse(body.data);
    const value=s.key==='menu'?z.array(z.object({label:z.string().min(1).max(60),action:z.enum(['meditations','events','community','about','free','consultation','channel','access','menu']),hidden:z.boolean().optional()})).min(1).max(20).parse(s.value):text.parse(s.value);
    saved=await tx.setting.upsert({where:{key:s.key},create:{key:s.key,value},update:{value}});
   } else if(resource==='registrations') {
