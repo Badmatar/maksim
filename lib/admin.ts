@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { listFeedback, type FeedbackRecord } from '@/lib/feedback';
 import { defaultTexts, resolveEditorialText } from '@/lib/editorial';
 import { db, transaction, DomainError } from '@/lib/db';
 const text=z.string().trim().min(1).max(3000),id=z.string().min(1),optional=z.string().nullable().optional();
@@ -35,11 +36,12 @@ export async function listResource(resource:string,query:string) {
   case 'automations':return db.automationStep.findMany({orderBy:{delayDays:'asc'}});
   case 'admins':return db.admin.findMany();
   case 'settings': {
-   const rows=await db.setting.findMany({where:{AND:[{key:{not:'maintenanceLease'}},{key:{not:'botLoginRate'}},{NOT:{key:{startsWith:'botLogin:'}}}]}});
+   const rows=await db.setting.findMany({where:{AND:[{key:{not:'maintenanceLease'}},{key:{not:'botLoginRate'}},{key:{not:'feedbackGlobalLimit'}},{NOT:{key:{startsWith:'feedback'}}},{NOT:{key:{startsWith:'botLogin:'}}}]}});
    return [...Object.keys(defaultTexts).map(key=>({key,value:resolveEditorialText(key,rows.find(row=>row.key===key)?.value)})),...rows.filter(row=>!Object.hasOwn(defaultTexts,row.key))];
   }
   case 'audit':return db.auditLog.findMany({orderBy:{createdAt:'desc'},take:100});
   case 'jobs':return db.job.findMany({where:{status:{in:['failed','pending','running']}},select:{id:true,kind:true,status:true,attempts:true,lastError:true,runAt:true},orderBy:{runAt:'asc'},take:100});
+  case 'feedback':return listFeedback();
   case 'consultations':return db.consultation.findMany({include:{user:true},orderBy:{createdAt:'desc'},take:100});
   default:throw new DomainError('Неизвестный раздел');
  }
@@ -48,7 +50,12 @@ export async function saveResource(resource:string,raw:unknown,actor:string) {
  const body=z.object({id:optional,data:z.unknown()}).parse(raw);
  return transaction(async tx=>{
   let saved:unknown;
-  if(resource==='settings') {
+  if(resource==='feedback') {
+   const feedbackId=z.uuid().parse(body.id);const update=z.object({status:z.enum(['new','reviewed'])}).strict().parse(body.data);
+   const key=`feedback:${feedbackId}`;const record=await tx.setting.findUnique({where:{key}});
+   if(!record)throw new DomainError('Сообщение не найдено');
+   saved=await tx.setting.update({where:{key},data:{value:{...(record.value as unknown as FeedbackRecord),status:update.status}}});
+  } else if(resource==='settings') {
    const s=z.object({key:z.enum(['welcome','welcomeVideo','about','menuText','privacy','menu','eventsText','communityText','consultationText']),value:z.unknown()}).parse(body.data);
    const value=s.key==='menu'?z.array(z.object({label:z.string().min(1).max(60),action:z.enum(['meditations','events','community','about','free','consultation','channel','access','menu']),hidden:z.boolean().optional()})).min(1).max(20).parse(s.value):text.parse(s.value);
    saved=await tx.setting.upsert({where:{key:s.key},create:{key:s.key,value},update:{value}});

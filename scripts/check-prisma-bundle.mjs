@@ -6,6 +6,7 @@ import path from 'node:path';
 const routes = [
   'api/health/route',
   'api/auth/bot/route',
+  'api/feedback/route',
   'api/cron/route',
   'api/telegram/webhook/route',
   'api/telegram/diagnostics/route',

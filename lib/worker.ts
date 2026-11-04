@@ -1,3 +1,4 @@
+import type { FeedbackRecord } from '@/lib/feedback';
 import { db, transaction, enqueue } from '@/lib/db';
 import { getBot } from '@/lib/bot';
 import { InlineKeyboard, GrammyError } from 'grammy';
@@ -66,6 +67,13 @@ async function processJob(kind:string,p:any) {
   case 'event_reminder': {
    const r=await db.registration.findUnique({where:{userId_eventId:{userId:p.userId,eventId:p.eventId}},include:{event:true}});
    if(r?.status==='confirmed'&&r.event.published&&r.event.startsAt>new Date()&&r.event.startsAt.getTime()<=Date.now()+86400000)await send(p.userId,`Напоминаем: ${r.event.title}, ${r.event.startsAt.toLocaleString('ru-RU',{timeZone:r.event.timezone})} (${r.event.timezone}). ${r.event.location}`);break;
+  }
+  case 'feedback_notice': {
+   const saved=await db.setting.findUnique({where:{key:`feedback:${p.id}`}});if(!saved)return;
+   const f=saved.value as unknown as FeedbackRecord;
+   const kind=({idea:'Предложение',question:'Вопрос',problem:'Проблема',practice:'Отзыв о практике'})[f.kind];
+   const message=`Обратная связь MAKSIM · ${kind}\n${f.rating?`Оценка: ${f.rating}/5\n`:''}${f.context?`Раздел: ${f.context}\n`:''}Контакт (указан пользователем): ${f.contact||'не оставлен'}\n\n${f.message}\n\nСообщение сохранено в админке → Обратная связь.`;
+   for(const id of await admins())await bot.api.sendMessage(id,message);break;
   }
   case 'consultation': {const c=await db.consultation.findUniqueOrThrow({where:{id:p.id},include:{user:true}});for(const id of await admins())await bot.api.sendMessage(id,`Запрос консультации от ${c.user.name}, Telegram ID ${c.user.telegramId}${c.user.username?` (@${c.user.username})`:''}\n${c.text}`);break;}
   case 'broadcast_page':await broadcastPage(p.broadcastId,p.cursor);break;

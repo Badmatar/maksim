@@ -3,9 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import Script from 'next/script';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowUpRight, ArrowRight, AudioLines, CalendarDays, CircleUserRound, Home, Leaf, Play, Sparkles, UsersRound, X, ChevronLeft } from 'lucide-react';
+import { ArrowUpRight, ArrowRight, AudioLines, CalendarDays, CircleUserRound, Home, Leaf, Play, Sparkles, UsersRound, MessageCircle, X, ChevronLeft } from 'lucide-react';
 import { writtenPractices, everydayNotes, communityPrinciples, meetingFormats, commonQuestions, defaultTexts, practiceText } from '@/lib/editorial';
 import { botActionUrl, type MiniappAction } from '@/lib/miniapp';
+import {PracticeBuilder} from './practice-builder';
+import {FeedbackForm} from './feedback-form';
 import './practice-app.css';
 export type Catalog = {
   meditations: { id: string; title: string; description: string; category: string; durationMinutes: number; free: boolean; coverUrl: string | null }[];
@@ -13,13 +15,15 @@ export type Catalog = {
   communities: { id: string; title: string; description: string; price: number; currency: string; durationDays: number | null }[];
   about: string; texts?: { events: string; community: string }; unavailable: boolean;
 };
-type Tab = 'home' | 'practices' | 'events' | 'community' | 'about';
+type Tab = 'home' | 'practices' | 'events' | 'community' | 'about' | 'builder' | 'feedback';
 type TelegramApp = { initData: string; ready: () => void; expand: () => void; setHeaderColor: (color: string) => void; setBackgroundColor: (color: string) => void; openTelegramLink: (url: string) => void; BackButton: { show: () => void; hide: () => void; onClick: (fn: () => void) => void; offClick: (fn: () => void) => void } };
 function telegram() { return (window as Window & { Telegram?: { WebApp?: TelegramApp } }).Telegram?.WebApp; }
 const tabs = [ ['home', 'Главная', Home], ['practices', 'Практики', AudioLines], ['events', 'Встречи', CalendarDays], ['community', 'Сообщество', UsersRound], ['about', 'О Максиме', CircleUserRound] ] as const;
 export function PracticeApp({ catalog, username }: { catalog: Catalog; username?: string }) {
   const [tab, setTab] = useState<Tab>('home');
   const [category, setCategory] = useState('Все');
+  const [feedbackContext,setFeedbackContext]=useState('');
+  function feedback(context=''){setFeedbackContext(context);select('feedback');}
   const [notice, setNotice] = useState('');
   const [detail, setDetail] = useState<{ title: string; description: string; action?: MiniappAction; label?: string } | null>(null);
   function select(next: Tab) { setTab(next); setDetail(null); window.scrollTo({ top: 0, behavior: 'instant' }); }
@@ -44,7 +48,7 @@ export function PracticeApp({ catalog, username }: { catalog: Catalog; username?
   return <div className="practice-world">
     <Script src="https://telegram.org/js/telegram-web-app.js" strategy="afterInteractive" onLoad={ready} />
     <div className="practice-shell">
-      <header className="practice-header"><button className="practice-brand" onClick={() => select('home')} aria-label="MAKSIM — главная">MAKSIM<span>ПРОСТРАНСТВО ПРАКТИК</span></button><button className="practice-account" aria-label="Мой доступ в Telegram" onClick={() => openBot('access')}><CircleUserRound size={21} strokeWidth={1.4} /></button></header>
+      <header className="practice-header"><button className="practice-brand" onClick={() => select('home')} aria-label="MAKSIM — главная">MAKSIM<span>ПРОСТРАНСТВО ПРАКТИК</span></button><div className="practice-header-actions"><button className="practice-account" aria-label="Обратная связь" onClick={()=>feedback()}><MessageCircle size={20} strokeWidth={1.4}/></button><button className="practice-account" aria-label="Мой доступ в Telegram" onClick={() => openBot('access')}><CircleUserRound size={21} strokeWidth={1.4} /></button></div></header>
       <main className="practice-main">
       {tab === 'home' ? <>
         <section className="practice-hero" aria-labelledby="hero-title">
@@ -52,16 +56,20 @@ export function PracticeApp({ catalog, username }: { catalog: Catalog; username?
           <div className="practice-hero-copy"><p className="practice-eyebrow"><span /> МЕСТО ДЛЯ СЕБЯ</p><h1 id="hero-title">Ближе<br />к настоящему.<br /><em>Ближе к себе.</em></h1><p>Медитации, живые встречи и люди,<br />с которыми можно быть собой.</p></div>
           <button className="practice-feature" onClick={() => openBot('free')}><span className="practice-feature-art"><Leaf size={31} strokeWidth={1} /></span><span><small>ВАШ ПЕРВЫЙ ШАГ</small><strong>Начать с тишины</strong><span>Попробовать бесплатную практику</span></span><ArrowRight size={22} strokeWidth={1.3} /></button>
         </section>
+        <button className="practice-builder-link" onClick={()=>select('builder')}><Sparkles size={24} strokeWidth={1}/><span><strong>Практика для меня</strong><small>Пять вопросов — и ваш путь на 3, 5 или 10 минут</small></span><ArrowUpRight size={20}/></button>
         <section className="practice-paths" aria-label="Исследуйте пространство"><button className="practice-path practice-path-earth" onClick={() => select('practices')}><PortraitPhoto panel="meditation" /><AudioLines size={25} strokeWidth={1.2} /><h2>Практики<br />на каждый день</h2><span>Услышать себя <ArrowUpRight size={16} /></span></button><button className="practice-path practice-path-forest" onClick={() => select('events')}><PortraitPhoto panel="window" /><CalendarDays size={25} strokeWidth={1.2} /><h2>Встречи<br />в настоящем</h2><span>Быть рядом <ArrowUpRight size={16} /></span></button></section>
         <section className="practice-day-notes" aria-label="Внимание к себе в течение дня"><h2>Место для себя<br /><em>в обычном дне.</em></h2>{everydayNotes.map(note => <article key={note.title}><h3>{note.title}</h3><p>{note.text}</p></article>)}</section><section className="practice-note"><span className="practice-note-mark">✧</span><p>Можно никуда не спешить.<br /><em>Вы уже там, где нужно начать.</em></p><span>MAKSIM · ПРОСТРАНСТВО ПРАКТИК</span></section>
         <button className="practice-community-link" onClick={() => select('community')}><UsersRound size={25} strokeWidth={1.2} /><span><strong>Своё окружение</strong><small>Сообщество, в котором вас слышат</small></span><ArrowUpRight size={20} /></button>
       </> : <section className="practice-section" aria-labelledby="section-title">
         <button className="practice-back" onClick={() => select('home')}><ChevronLeft size={16} /> Главная</button>
         <p className="practice-eyebrow">MAKSIM / ПРОСТРАНСТВО ПРАКТИК</p>
-        <h1 id="section-title">{tabs.find(t => t[0] === tab)?.[1]}</h1>
-        <p className="practice-section-intro">{({ practices: 'Найдите свой ритм. Одна практика — один шаг к себе.', events: 'Время, которое мы проживаем вместе.', community: 'Место, где можно быть собой и чувствовать поддержку.', about: 'Человек за этим пространством.' } as const)[tab]}</p>
-        {catalog.unavailable && tab !== 'about' && <p className="practice-empty" role="status">Не удалось загрузить аудио и расписание. Текстовые практики и описания доступны ниже. Можно также открыть нужный раздел в боте.<button onClick={() => openBot(tab === 'practices' ? 'meditations' : tab)}>Открыть в Telegram <ArrowUpRight size={16} /></button></p>}
+        <h1 id="section-title">{tab==='builder'?'Практика для меня':tab==='feedback'?'Обратная связь':tabs.find(t => t[0] === tab)?.[1]}</h1>
+        <p className="practice-section-intro">{({ practices: 'Найдите свой ритм. Одна практика — один шаг к себе.', events: 'Время, которое мы проживаем вместе.', community: 'Место, где можно быть собой и чувствовать поддержку.', about: 'Человек за этим пространством.', builder: 'Выберите, что подходит вам сейчас. Соберём последовательность из готовых упражнений.', feedback: 'Ваши вопросы, идеи и впечатления помогают делать пространство удобнее.' } as const)[tab]}</p>
+        {catalog.unavailable && !['about','builder','feedback'].includes(tab) && <p className="practice-empty" role="status">Не удалось загрузить аудио и расписание. Текстовые практики и описания доступны ниже. Можно также открыть нужный раздел в боте.<button onClick={() => openBot(tab === 'events' ? 'events' : tab === 'community' ? 'community' : 'meditations')}>Открыть в Telegram <ArrowUpRight size={16} /></button></p>}
+        {tab==='builder'&&<PracticeBuilder onFeedback={feedback}/>}
+        {tab==='feedback'&&<FeedbackForm key={feedbackContext} context={feedbackContext} onDone={()=>select('home')}/>}
         {tab === 'practices' && <>
+          <button className="practice-builder-link practice-builder-link--inside" onClick={()=>select('builder')}><Sparkles size={24}/><span><strong>Собрать свою практику</strong><small>Под своё время и предпочтения</small></span><ArrowRight size={19}/></button>
           <div className="practice-filters" aria-label="Категории практик">{categories.map(c => <button key={c} aria-pressed={category === c} onClick={() => setCategory(c)}>{c}</button>)}</div>
           <div className="practice-reading-intro"><h2>Небольшие шаги к себе</h2><p>Бесплатные текстовые практики. Прочитайте шаги и попробуйте их в удобном темпе — особая подготовка не нужна.</p></div>
           <div className="practice-reading-list">{readings.map(p => <button className="practice-reading" key={p.id} onClick={() => setDetail({ title: p.title, description: practiceText(p).split('\n').slice(1).join('\n').trim() })}><span className="practice-material-tag">{p.category} · {p.minutes} мин</span><h2>{p.title}</h2><p>{p.description}</p><span>Прочитать практику <ArrowUpRight size={17} /></span></button>)}</div>
@@ -73,9 +81,9 @@ export function PracticeApp({ catalog, username }: { catalog: Catalog; username?
         {tab === 'about' && <><div className="practice-about-art"><PortraitPhoto panel="seated" alt="Максим Машков в тёплом интерьере" /><small>МАКСИМ МАШКОВ</small></div><div className="practice-about-copy"><h2>Пространство,<br /><em>в котором есть вы.</em></h2><p>{catalog.about || defaultTexts.about}</p><button className="practice-cta" onClick={() => openBot('consultation')}>Личная консультация <ArrowUpRight size={17} /></button><button className="practice-text-link" onClick={() => openBot('channel')}>Открытый Telegram-канал <ArrowUpRight size={15} /></button></div></>}
       </section>}
       {(tab === 'home' || tab === 'about') && <section className="practice-faq"><h2>Если вы здесь впервые</h2>{commonQuestions.map(item => <details key={item.question}><summary>{item.question}</summary><p>{item.answer}</p></details>)}</section>}
-      <footer className="practice-footer"><span>БЕРЕЖНО К СЕБЕ. КАЖДЫЙ ДЕНЬ.</span><Link href="/login">Для команды <ArrowUpRight size={12} /></Link></footer>
+      <footer className="practice-footer"><button className="practice-feedback-link" onClick={()=>feedback()}>Обратная связь <ArrowUpRight size={13}/></button><span>БЕРЕЖНО К СЕБЕ. КАЖДЫЙ ДЕНЬ.</span><Link href="/login">Для команды <ArrowUpRight size={12} /></Link></footer>
       </main>
-      <nav className="practice-nav" aria-label="Основная навигация">{tabs.map(([id, label, Icon]) => <button key={id} aria-current={tab === id ? 'page' : undefined} onClick={() => select(id)}><Icon size={23} strokeWidth={tab === id ? 1.8 : 1.3} /><span>{label}</span>{tab === id && <i />}</button>)}</nav>
+      <nav className="practice-nav" aria-label="Основная навигация">{tabs.map(([id, label, Icon]) => <button key={id} aria-current={tab === id || (id==='practices' && tab==='builder') ? 'page' : undefined} onClick={() => select(id)}><Icon size={23} strokeWidth={tab === id ? 1.8 : 1.3} /><span>{label}</span>{tab === id && <i />}</button>)}</nav>
       {notice && <div className="practice-notice" role="alert">{notice}<button onClick={() => setNotice('')} aria-label="Закрыть уведомление"><X size={18} /></button></div>}
       {detail && <DetailDialog detail={detail} onClose={() => setDetail(null)} openBot={openBot} />}
     </div>
