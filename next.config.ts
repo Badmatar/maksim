@@ -2,6 +2,7 @@ import type { NextConfig } from 'next';
 
 const config: NextConfig = {
   poweredByHeader: false,
+  images: { qualities: [75, 85] },
   experimental: { cpus: 2 },
   serverExternalPackages: ['@prisma/client'],
   // Prisma loads the Rust-free query compiler dynamically from the generated
