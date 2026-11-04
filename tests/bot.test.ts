@@ -74,3 +74,24 @@ it('routes miniapp links without resending onboarding or bypassing paid access',
  expect(calls.some(c=>c.method==='sendAudio')).toBe(false);
  expect((await db.user.findUniqueOrThrow({where:{telegramId:12345n}})).onboarded).toBe(false);
 });
+
+it('keeps an app entrance when a free practice has not been published',async()=>{
+ await getBot().handleUpdate(message('/start open_free'));
+ expect(calls.some(c=>c.method==='sendMessage'&&c.payload.text.includes('Бесплатная практика скоро появится'))).toBe(true);
+ expect(calls.some(c=>c.method==='sendMessage'&&c.payload.reply_markup?.keyboard?.[0]?.[0]?.web_app?.url==='https://example.vercel.app/miniapp')).toBe(true);
+ expect(calls.some(c=>c.method==='sendAudio')).toBe(false);
+ const u=await db.user.findUniqueOrThrow({where:{telegramId:12345n}});expect(u.freeReceived).toBe(false);expect(u.onboarded).toBe(false);
+});
+it('opens the app directly for a new user without requiring free audio or onboarding',async()=>{
+ await getBot().handleUpdate(message('/app'));
+ expect(calls.find(c=>c.method==='sendMessage')?.payload.reply_markup.inline_keyboard[0][0].web_app.url).toBe('https://example.vercel.app/miniapp');
+ expect(calls.some(c=>c.method==='sendAudio'||c.method==='sendPhoto')).toBe(false);
+ const u=await db.user.findUniqueOrThrow({where:{telegramId:12345n}});expect(u.freeReceived).toBe(false);expect(u.onboarded).toBe(false);
+});
+it('offers the existing menu if the app address is not configured',async()=>{
+ const appUrl=process.env.APP_URL;
+ try {process.env.APP_URL='';await getBot().handleUpdate(message('/app'));
+ expect(calls.some(c=>c.method==='sendMessage'&&c.payload.text.includes('Приложение пока не подключено'))).toBe(true);
+ expect(calls.some(c=>c.method==='sendMessage'&&c.payload.reply_markup?.keyboard?.some((row:any[])=>row.some(button=>button.text==='🧘 Медитации')))).toBe(true);
+ }finally{process.env.APP_URL=appUrl;}
+});

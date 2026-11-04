@@ -47,6 +47,12 @@ export function getBot() {
   const video=await setting('welcomeVideo');if(video)await ctx.replyWithVideo(video);
   await ctx.reply('Начнём с бесплатной практики?',{reply_markup:new InlineKeyboard().text('🌿 Получить практику','free')});
  });
+ bot.command('app',async ctx=>{
+  const appUrl=miniappUrl();
+  if(!appUrl){await ctx.reply('Приложение пока не подключено. Доступные разделы — в меню ниже.');await showMenu(ctx);return;}
+  await ctx.reply('MAKSIM · Пространство практик\n\nНажмите кнопку ниже, чтобы открыть приложение.',{reply_markup:new InlineKeyboard().webApp('✨ Войти в приложение',appUrl)});
+ });
+ bot.command('menu',async ctx=>{await showMenu(ctx);});
  bot.command('unsubscribe',async ctx=>{await db.user.update({where:{telegramId:BigInt(ctx.from!.id)},data:{marketingConsent:false}});await ctx.reply('Вы отписались от маркетинговых сообщений. Уведомления по заказам и событиям сохранятся.');});
  bot.command('subscribe',async ctx=>{await ctx.reply('Разрешаете присылать новости и предложения? Отказ: /unsubscribe. Политика обработки данных доступна по команде /privacy.',{reply_markup:new InlineKeyboard().text('Да, подписаться','consent')});});
  bot.command('privacy',async ctx=>{await ctx.reply(await setting('privacy','Сохраняем Telegram ID, имя, заявки и покупки для работы сервиса. Не отправляйте сведения о здоровье. Для удаления данных обратитесь к администратору через раздел «Консультация».'));});
@@ -63,7 +69,7 @@ export function getBot() {
   const u=await user(ctx.from!.id);
   if(name==='free') {
    const m=await db.meditation.findFirst({where:{free:true,published:true}});
-   if(!m){await ctx.reply('Бесплатная практика скоро появится.');return;}
+   if(!m){await ctx.reply('Бесплатная практика скоро появится. Остальные разделы доступны в меню ниже.');await showMenu(ctx);return;}
    await ctx.replyWithAudio(m.audioFileId,{caption:m.title});
    await db.user.update({where:{id:u.id},data:{freeReceived:true,onboarded:true}});
    await showMenu(ctx);return;
