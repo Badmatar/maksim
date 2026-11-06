@@ -9,6 +9,7 @@ import { botActionUrl, type MiniappAction } from '@/lib/miniapp';
 import {PracticeBuilder} from './practice-builder';
 import {FeedbackForm} from './feedback-form';
 import './practice-app.css';
+import './light-theme.css';
 export type Catalog = {
   meditations: { id: string; title: string; description: string; category: string; durationMinutes: number; free: boolean; coverUrl: string | null }[];
   events: { id: string; title: string; description: string; format: string; date: string; timezone: string; registrationOpen: boolean; coverUrl: string | null }[];
@@ -34,7 +35,7 @@ export function PracticeApp({ catalog, username }: { catalog: Catalog; username?
     if (app) app.openTelegramLink(url);
     else window.location.assign(url);
   }
-  function ready() { const app = telegram(); app?.ready(); app?.expand(); app?.setHeaderColor('#171410'); app?.setBackgroundColor('#171410'); }
+  function ready() { const app = telegram(); app?.ready(); app?.expand(); app?.setHeaderColor('#f7f2ea'); app?.setBackgroundColor('#f7f2ea'); }
   useEffect(() => {
     const back = () => { if (detail) setDetail(null); else select('home'); };
     const app = telegram();
